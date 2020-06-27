@@ -35,6 +35,7 @@ velocity_camera = [-0.08/30, 0.0, 0.0]
 zeros_one = np.matrix('0 0 0 1')
 
 R_cam_tcp = np.matrix('-1 0 0; 0 0 -1; 0 -1 0')
+#R_cam_tcp = np.matrix('1 0 0; 0 0 1; 0 -1 0')
 t_cam_tcp = np.matrix('-0.025; -0.053; 0.058')
 
 
