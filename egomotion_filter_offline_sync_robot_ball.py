@@ -38,6 +38,26 @@ sr300_center_z = 0.004
 camera_to_ball_y = 0.0035
 camera_to_ball_x = 0.6565
 
+# Transformation between camera and TCP
+zeros_one = np.matrix('0 0 0 1')
+
+R_cam_tcp = np.matrix('-1 0 0; 0 0 -1; 0 -1 0')
+t_cam_tcp = np.matrix('-0.025; -0.053; 0.058')
+
+
+T_cam_tcp = np.append(R_cam_tcp, t_cam_tcp, axis = 1)
+T_cam_tcp = np.append(T_cam_tcp, zeros_one, axis = 0)
+print(T_cam_tcp)
+
+R_tcp_cam = R_cam_tcp.transpose()
+t_tcp_cam = -1.0 * R_tcp_cam.dot(t_cam_tcp)
+T_tcp_cam = np.append(R_tcp_cam, t_tcp_cam, axis = 1)
+T_tcp_cam = np.append(T_tcp_cam, zeros_one, axis = 0)
+print(T_tcp_cam)
+
+time.sleep(10000)
+
+
 # Camera settings
 width_sr300 = 640
 height_sr300 = 480
