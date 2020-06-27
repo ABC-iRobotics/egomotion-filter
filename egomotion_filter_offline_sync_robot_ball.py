@@ -30,9 +30,6 @@ time_crop_point_end = 4 * 1000.0
 velocity_camera = [-0.08/30, 0.0, 0.0]
 
 
-# Translations UR
-camera_to_ball_y = 0.0035
-camera_to_ball_x = 0.6565
 
 # Transformation between camera and TCP
 zeros_one = np.matrix('0 0 0 1')
@@ -50,6 +47,16 @@ t_tcp_cam = -1.0 * R_tcp_cam.dot(t_cam_tcp)
 T_tcp_cam = np.append(R_tcp_cam, t_tcp_cam, axis = 1)
 T_tcp_cam = np.append(T_tcp_cam, zeros_one, axis = 0)
 #print(T_tcp_cam)
+
+
+# Transformation between the two robots
+
+R_base_base_ball = np.matrix('-1 0 0; 0 -1 0; 0 0 1')
+t_base_base_ball = np.matrix('-0.6565; -0.0035; 0.0')
+
+
+T_base_base_ball = np.append(R_base_base_ball, t_base_base_ball, axis = 1)
+T_base_base_ball = np.append(T_base_base_ball, zeros_one, axis = 0)
 
 
 
@@ -85,8 +92,6 @@ if (len(sys.argv)<1 ):
 robot_states = read_robot_states.read_robot_states(str(sys.argv[1]) + "/" + "robot_states.txt") 
 robot_states_ball = read_robot_states.read_robot_states(str(sys.argv[1]) + "/" + "robot_states_ball.txt") 
 
-# Translate the robots and the camera to a common coordinate system
-tests.first_coordTransformTo_second(robot_states_ball, camera_to_ball_x, camera_to_ball_y)
 
 # Get config for the stream
 config_1 = ri.get_config()
@@ -212,7 +217,7 @@ try:
 
         r_robot = [robot_states[robot_i].rx, robot_states[robot_i].ry, robot_states[robot_i].rz]
         r_robot_prev = [robot_states[robot_i_prev].rx, robot_states[robot_i_prev].ry, robot_states[robot_i_prev].rz]
-        print("Velocity robot:\t\t{} [m/frame]".format(velocity_robot))
+        print("Velocity robot:\t\t{} [m/s]".format(velocity_robot))
 
             
         # Sync robot ball
@@ -236,7 +241,10 @@ try:
                 robot_states_ball[robot_ball_i_prev].y) / robot_ball_dt,
                               (robot_states_ball[robot_ball_i].z - \
                 robot_states_ball[robot_ball_i_prev].z) / robot_ball_dt]
-        print("Velocity robot ball:\t{} [m/frame]".format(velocity_robot_ball))
+
+        velocity_robot_ball = tests.velocity_ball_to_camera_frame( \
+            velocity_robot_ball, T_cam_tcp, T_base_base_ball, robot_states[robot_i])
+        print("Velocity robot ball:\t{} [m/s]".format(velocity_robot_ball))
        
         # Get the images
         depth_image = ri.convert_img_to_nparray(depth_frame)
@@ -374,9 +382,9 @@ try:
         velocity_std_nonzero_elements = np.std(velocity_nonzero_elements,0)           
                                                         
        
-        print("Result velocity mean:\t{} [m/frame]"\
+        print("Result velocity mean:\t{} [m/s]"\
                             .format(velocity_mean_nonzero_elements))
-        print("Result velocity std:\t{} [m/frame]"\
+        print("Result velocity std:\t{} [m/s]"\
                             .format(velocity_std_nonzero_elements))
         
         depth_z=[]
@@ -405,11 +413,11 @@ try:
         robot_ball_i_prev = robot_ball_i
         #time.sleep(0.01)
         
-        print("eye={}".format(v.get("eye")))
-        print("lookat={}".format(v.get("lookat")))
-        print("phi={}".format(v.get("phi")))
-        print("theta={}".format(v.get("theta")))
-        print("r={}".format(v.get("r")))
+       # print("eye={}".format(v.get("eye")))
+       # print("lookat={}".format(v.get("lookat")))
+       # print("phi={}".format(v.get("phi")))
+       # print("theta={}".format(v.get("theta")))
+       # print("r={}".format(v.get("r")))
         print("")
         
         
