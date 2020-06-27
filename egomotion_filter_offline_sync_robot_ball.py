@@ -29,10 +29,6 @@ time_crop_point_end = 4 * 1000.0
 # Velocity camera
 velocity_camera = [-0.08/30, 0.0, 0.0]
 
-# Translation camera
-sr300_center_y = 0.058
-sr300_center_x = 0.053
-sr300_center_z = 0.004
 
 # Translations UR
 camera_to_ball_y = 0.0035
@@ -64,7 +60,7 @@ framerate_sr300 = 30
 
 # Algorithm settings
 step = 16
-threshold = 0.09  
+threshold = 0.0015
 only_the_ball = False
 minRadius=40
 maxRadius=65 #65 #75
@@ -91,7 +87,6 @@ robot_states_ball = read_robot_states.read_robot_states(str(sys.argv[1]) + "/" +
 
 # Translate the robots and the camera to a common coordinate system
 tests.first_coordTransformTo_second(robot_states_ball, camera_to_ball_x, camera_to_ball_y)
-tests.tcp_to_camera(robot_states, sr300_center_x, sr300_center_y, sr300_center_z)
 
 # Get config for the stream
 config_1 = ri.get_config()
@@ -328,20 +323,8 @@ try:
             #print("Timstamp base: {}".format(pose.get_frame_timestamp_domain()))
             #print("Num: {}".format(depth_frame_aligned.get_frame_number()))
 
-        # Get base velocities
-        # If CONST, leave the original value in velocity_camera
-        if speed_source == SpeedSource.ROBOT:
-            robot_dt = (robot_states[robot_i].timestamp - \
-                        robot_states[robot_i_prev].timestamp) / (30.0)
-            velocity_camera[0] = - velocity_robot[0]
-            velocity_camera[1] = - velocity_robot[1]
-            velocity_camera[2] = - velocity_robot[2]
-        elif speed_source == SpeedSource.T265:
-            velocity_camera[0] =- (velocity.x / 30.0)
-            velocity_camera[1] =- (velocity.y / 30.0)
-            velocity_camera[2] =- (velocity.z / 30.0)
+
             
-        print("Velocity camera:\t{} [m/frame]".format(velocity_camera))
         
         
         R_robot=urrot.rot_vec2rot_mat(r_robot[0], r_robot[1], r_robot[2])

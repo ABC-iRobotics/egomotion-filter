@@ -257,10 +257,11 @@ def velocity_comparison(aligned_depth_frame, diff_flow, velocities_from_egomotio
     diff_flow_rel = np.empty((h//step, w//step, 3))
     for i in range(h//step):
         for j in range(w//step):
-            #print("rotation displacement", rotation_displacement)
-            diff_flow_rel[i,j,0] = diff_flow[i,j,0] - velocities_from_egomotion[i,j,0]
-            diff_flow_rel[i,j,1] = diff_flow[i,j,1] - velocities_from_egomotion[i,j,1]
-            diff_flow_rel[i,j,2] = diff_flow[i,j,2] - velocities_from_egomotion[i,j,2]
+            #print("diff_flow:\t{}\t\tvelocity:\t{}".format(diff_flow[i,j,:],velocities_from_egomotion[i,j,:]))
+
+            diff_flow_rel[i,j,0] = -(diff_flow[i,j,0] - velocities_from_egomotion[i,j,0])
+            diff_flow_rel[i,j,1] = -(diff_flow[i,j,1] - velocities_from_egomotion[i,j,1])
+            diff_flow_rel[i,j,2] = -(diff_flow[i,j,2] - velocities_from_egomotion[i,j,2])
 
             if (abs(diff_flow_rel[i,j,0]) > threshold or abs(diff_flow_rel[i,j,1]) > threshold or abs(diff_flow_rel[i,j,2]) > threshold):
                 egomotion_filtered_flow[i,j] = diff_flow_rel[i,j]
