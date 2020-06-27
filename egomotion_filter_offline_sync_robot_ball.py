@@ -277,12 +277,19 @@ try:
 	                    (0, 128, 255), -1)
 	                cv2.circle(ball_mask, (x, y), r+radiusOffset, 255, -1)
             cv2.imshow("Ball detection", ball_detection)
-            gray = cv2.bitwise_and(gray,gray,mask = ball_mask)
-            cv2.imshow("Ball segmented", gray)
-        
+            gray_segmented = cv2.bitwise_and(gray,gray,mask = ball_mask)
+            cv2.imshow("Ball segmented", gray_segmented)
+
         # Calculate optical flow
-        flow = cv2.calcOpticalFlowFarneback(gray_prev, gray,  
-                                    None, 0.5, 5, 15, 3, 5, 1, cv2.OPTFLOW_FARNEBACK_GAUSSIAN)
+        flow = cv2.calcOpticalFlowFarneback(gray_prev, gray,
+                          None, 0.5, 5, 15, 3, 5, 1, cv2.OPTFLOW_FARNEBACK_GAUSSIAN)
+
+
+        if only_the_ball:
+            for i in range(flow.shape[0]):
+                for j in range(flow.shape[1]):
+                    if (ball_mask[i,j] == 0):
+                        flow[i,j,:] = [0,0]
 
         # Get the previous and the current pixel locations
         lines = emf.get_lines(gray, flow, step=step)
