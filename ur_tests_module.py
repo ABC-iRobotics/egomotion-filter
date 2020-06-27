@@ -8,19 +8,10 @@ import read_robot_states
 import time 
 import sys  
 import pptk
+import read_robot_states
 
-
-def first_coordTransformTo_second(robot_states_ball, camera_to_ball_x, camera_to_ball_y):
-    for state in robot_states_ball:
-        state.x = state.x + camera_to_ball_x
-        state.y = state.y + camera_to_ball_y
         
         
-def tcp_to_camera(robot_states, sr300_center_x, sr300_center_y, sr300_center_z):
-    for state in robot_states:
-        state.x = state.x + sr300_center_x
-        state.y = -(state.y + sr300_center_y)
-        state.z = -(state.z + sr300_center_z)
 
 def start_sr300(config, pipeline, width_sr300, height_sr300, framerate_sr300, filename):
     # Get the camera data from a bag file
@@ -57,5 +48,41 @@ def start_t265(config, pipeline, filename):
     return profile_1
     
 
-            
+def velocity_ball_to_camera_frame(velcity_ball, T_camera_tcp, T_base_base_ball, robot_state):
+    homegenous_velocity_ball = np.append(np.asmatrix(velcity_ball), np.matrix('0'), axis = 1).transpose()
+    homogenous_velocity_ball_cf = np.asarray(\
+        T_camera_tcp.dot(robot_state.T_tcp_base).dot( \
+        T_base_base_ball).dot(homegenous_velocity_ball))
+    velocity_cf= homogenous_velocity_ball_cf[0:3,:].flatten()
+    return velocity_cf
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 

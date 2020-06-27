@@ -9,6 +9,7 @@
 import pyrealsense2 as rs
 import numpy as np
 import cv2
+import read_robot_states as robot_states
 
 
 ## 
@@ -221,14 +222,19 @@ def deproject_flow_new(aligned_depth_frame, lines, step=16):
     return deprojected_coordinates
 
 
-def lin_from_ang(deprojected_coordinates, R_robot, R_prev_robot, robot_dt):
+def velocity_from_point_clouds(deprojected_coordinates, T_cam_tcp, T_tcp_cam, robot_state_1, robot_state_2, robot_dt):
     h, w = deprojected_coordinates.shape[:2]
-    displacement_from_angular = np.empty((h, w, 3))
+    velocities = np.empty((h, w, 3))
+    T_2_1 = T_cam_tcp.dot(robot_state_2.T_tcp_base).dot(robot_state_1.T_base_tcp).dot(T_tcp_cam)
     for i in range(h):
         for j in range(w):
-            sqeezed_coords = deprojected_coordinates[i,j,:]
-            displacement_from_angular[i,j,:] = (R_robot.dot(sqeezed_coords) - R_prev_robot.dot(sqeezed_coords)) #/ robot_dt
-    return displacement_from_angular
+            homegenous_coords_1 = np.append(np.asmatrix(deprojected_coordinates[i,j,:]), np.matrix('1'), axis = 1).transpose()
+            homegenous_coords_2 = T_2_1.dot(homegenous_coords_1)
+            homegenous_velocities = np.asarray(((homegenous_coords_2 - homegenous_coords_1) / robot_dt).flatten())
+            #print(homegenous_velocities)
+            velocities[i,j,:] = homegenous_velocities[:,0:3]
+            #print(velocities[i,j,:])
+    return velocities
     
   
 
@@ -244,17 +250,18 @@ def lin_from_ang(deprojected_coordinates, R_robot, R_prev_robot, robot_dt):
 #  @param step is the step number for index calculation
 #  @return the egomotion filtered optical 3D optical flow
 
-def velocity_comparison(aligned_depth_frame, diff_flow, velocity_camera, rotation_displacement, threshold, step=16):
+def velocity_comparison(aligned_depth_frame, diff_flow, velocities_from_egomotion, threshold, step=16):
     depth_image = np.asanyarray(aligned_depth_frame.get_data())
     h, w = depth_image.shape[:2]
     egomotion_filtered_flow = np.empty((h//step, w//step, 3))
     diff_flow_rel = np.empty((h//step, w//step, 3))
     for i in range(h//step):
         for j in range(w//step):
-            print("rotation displacement", rotation_displacement)
-            diff_flow_rel[i,j,0] = (diff_flow[i,j,0] - velocity_camera[0] - rotation_displacement[i,j,0])
-            diff_flow_rel[i,j,1] = (diff_flow[i,j,1] - velocity_camera[1] - rotation_displacement[i,j,1])
-            diff_flow_rel[i,j,2] = (diff_flow[i,j,2] - velocity_camera[2] - rotation_displacement[i,j,2])
+            #print("diff_flow:\t{}\t\tvelocity:\t{}".format(diff_flow[i,j,:],velocities_from_egomotion[i,j,:]))
+
+            diff_flow_rel[i,j,0] = -(diff_flow[i,j,0] - velocities_from_egomotion[i,j,0])
+            diff_flow_rel[i,j,1] = -(diff_flow[i,j,1] - velocities_from_egomotion[i,j,1])
+            diff_flow_rel[i,j,2] = -(diff_flow[i,j,2] - velocities_from_egomotion[i,j,2])
 
             if (abs(diff_flow_rel[i,j,0]) > threshold or abs(diff_flow_rel[i,j,1]) > threshold or abs(diff_flow_rel[i,j,2]) > threshold):
                 egomotion_filtered_flow[i,j] = diff_flow_rel[i,j]
@@ -299,7 +306,7 @@ def filtered_flow_2d(egomotion_filtered_flow, flow, step=16):
 #  @param deproject_flow is the prior deprojected points
 #  @return the 3D optical flow
 
-def flow_3d(deproject_flow_new, deproject_flow):
+def flow_3d(deproject_flow_new, deproject_flow, dt):
     h, w = deproject_flow_new.shape[:2]
     flow_3d = np.empty((h,w,3))
     for i in range(h):
@@ -307,7 +314,7 @@ def flow_3d(deproject_flow_new, deproject_flow):
             if deproject_flow_new[i,j,2] == 0 or deproject_flow[i,j,2] == 0 :
                 flow_3d[i,j] = 0
             else :
-                flow_3d[i,j] = deproject_flow_new[i,j] - deproject_flow[i,j]
+                flow_3d[i,j] = (deproject_flow_new[i,j] - deproject_flow[i,j]) / dt
     
     return flow_3d
     

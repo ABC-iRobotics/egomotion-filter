@@ -1,4 +1,5 @@
-
+import numpy as np
+import ur_rotation_module
 
 class RobotState():
     def __init__(self, timestamp, joints, x, y, z, rx, ry, rz):
@@ -10,12 +11,34 @@ class RobotState():
         self.rx = rx
         self.ry = ry
         self.rz = rz
+        zeros_one = np.matrix('0 0 0 1')
+        R_tcp_base = ur_rotation_module.rot_vec2rot_mat(self.rx, self.ry, self.rz)
+        t_base_tcp = np.matrix([[self.x],[self.y],[self.z]])
+        R_base_tcp = R_tcp_base.transpose()
+        t_tcp_base = -1.0 * R_tcp_base.dot(t_base_tcp)
+        self.T_tcp_base = np.append(R_tcp_base, t_tcp_base, axis = 1)
+        self.T_tcp_base = np.append(self.T_tcp_base, zeros_one, axis = 0)
+
+        self.T_base_tcp = np.append(R_base_tcp, t_base_tcp, axis = 1)
+        self.T_base_tcp = np.append(self.T_base_tcp, zeros_one, axis = 0)
+
+
         
     def __str__(self):
      return ("Timestamp: {}, Joint1: {}, Joint2: {}, Joint3: {}, Joint4: {}, Joint5: {}, Joint6: {}, " + 
              "x: {}, y: {}, z: {}, rx: {}, ry: {}, rz: {},").format(self.timestamp, self.joints[0],
              self.joints[1], self.joints[2], self.joints[3], self.joints[4], self.joints[5], 
              self.x, self.y, self.z, self.rx, self.ry, self.rz)
+
+    def getR_tcp_base(self):
+        return ur_rotation_module.rot_vec2rot_mat(self.rx, self.ry, self.rz)
+
+
+    def getT_tcp_base(self):
+        R_tcp_base = self.getR_tcp_base()
+        t_base_tcp = self
+
+
 
 # Read robot states file
 def read_robot_states(filename):
@@ -45,7 +68,8 @@ def read_robot_states(filename):
         #x_prev = x
         #t_prev = timestamp
     return robot_states
-    
+
+
     
 #robot_states = read_robot_states("robot_states.txt") 
 #for state in robot_states:

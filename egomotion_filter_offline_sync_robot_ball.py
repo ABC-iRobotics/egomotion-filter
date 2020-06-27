@@ -29,14 +29,36 @@ time_crop_point_end = 4 * 1000.0
 # Velocity camera
 velocity_camera = [-0.08/30, 0.0, 0.0]
 
-# Translation camera
-sr300_center_y = 0.058
-sr300_center_x = 0.053
-sr300_center_z = 0.004
 
-# Translations UR
-camera_to_ball_y = 0.0035
-camera_to_ball_x = 0.6565
+
+# Transformation between camera and TCP
+zeros_one = np.matrix('0 0 0 1')
+
+R_cam_tcp = np.matrix('-1 0 0; 0 0 -1; 0 -1 0')
+t_cam_tcp = np.matrix('-0.025; -0.053; 0.058')
+
+
+T_cam_tcp = np.append(R_cam_tcp, t_cam_tcp, axis = 1)
+T_cam_tcp = np.append(T_cam_tcp, zeros_one, axis = 0)
+#print(T_cam_tcp)
+
+R_tcp_cam = R_cam_tcp.transpose()
+t_tcp_cam = -1.0 * R_tcp_cam.dot(t_cam_tcp)
+T_tcp_cam = np.append(R_tcp_cam, t_tcp_cam, axis = 1)
+T_tcp_cam = np.append(T_tcp_cam, zeros_one, axis = 0)
+#print(T_tcp_cam)
+
+
+# Transformation between the two robots
+
+R_base_base_ball = np.matrix('-1 0 0; 0 -1 0; 0 0 1')
+t_base_base_ball = np.matrix('-0.6565; -0.0035; 0.0')
+
+
+T_base_base_ball = np.append(R_base_base_ball, t_base_base_ball, axis = 1)
+T_base_base_ball = np.append(T_base_base_ball, zeros_one, axis = 0)
+
+
 
 # Camera settings
 width_sr300 = 640
@@ -45,7 +67,7 @@ framerate_sr300 = 30
 
 # Algorithm settings
 step = 16
-threshold = 0.09  
+threshold = 0.0015
 only_the_ball = False
 minRadius=40
 maxRadius=65 #65 #75
@@ -70,9 +92,6 @@ if (len(sys.argv)<1 ):
 robot_states = read_robot_states.read_robot_states(str(sys.argv[1]) + "/" + "robot_states.txt") 
 robot_states_ball = read_robot_states.read_robot_states(str(sys.argv[1]) + "/" + "robot_states_ball.txt") 
 
-# Translate the robots and the camera to a common coordinate system
-tests.first_coordTransformTo_second(robot_states_ball, camera_to_ball_x, camera_to_ball_y)
-tests.tcp_to_camera(robot_states, sr300_center_x, sr300_center_y, sr300_center_z)
 
 # Get config for the stream
 config_1 = ri.get_config()
@@ -186,6 +205,9 @@ try:
             break;
         robot_dt = (robot_states[robot_i].timestamp - \
                         robot_states[robot_i_prev].timestamp) / (30.0)
+
+
+
         velocity_robot = [(robot_states[robot_i].x -\
                                 robot_states[robot_i_prev].x) / robot_dt,
                                 (robot_states[robot_i].y -\
@@ -195,7 +217,7 @@ try:
 
         r_robot = [robot_states[robot_i].rx, robot_states[robot_i].ry, robot_states[robot_i].rz]
         r_robot_prev = [robot_states[robot_i_prev].rx, robot_states[robot_i_prev].ry, robot_states[robot_i_prev].rz]
-        print("Velocity robot:\t\t{} [m/frame]".format(velocity_robot))
+        print("Velocity robot:\t\t{} [m/s]".format(velocity_robot))
 
             
         # Sync robot ball
@@ -219,7 +241,10 @@ try:
                 robot_states_ball[robot_ball_i_prev].y) / robot_ball_dt,
                               (robot_states_ball[robot_ball_i].z - \
                 robot_states_ball[robot_ball_i_prev].z) / robot_ball_dt]
-        print("Velocity robot ball:\t{} [m/frame]".format(velocity_robot_ball))
+
+        velocity_robot_ball = tests.velocity_ball_to_camera_frame( \
+            velocity_robot_ball, T_cam_tcp, T_base_base_ball, robot_states[robot_i])
+        print("Velocity robot ball:\t{} [m/s]".format(velocity_robot_ball))
        
         # Get the images
         depth_image = ri.convert_img_to_nparray(depth_frame)
@@ -275,7 +300,7 @@ try:
         deproject_flow_new = emf.deproject_flow_new(depth_frame_aligned, lines, step=step)
 
         # Calculate 3D optical flow
-        diff_flow = emf.flow_3d(deproject_flow_new, deproject_flow)
+        diff_flow = emf.flow_3d(deproject_flow_new, deproject_flow,robot_dt)
 
         # Apply colormap on depth image (image must be converted to 8-bit per pixel first)
         depth_colormap = ri.get_depth_colormap(depth_image, 1)
@@ -306,29 +331,18 @@ try:
             #print("Timstamp base: {}".format(pose.get_frame_timestamp_domain()))
             #print("Num: {}".format(depth_frame_aligned.get_frame_number()))
 
-        # Get base velocities
-        # If CONST, leave the original value in velocity_camera
-        if speed_source == SpeedSource.ROBOT:
-            robot_dt = (robot_states[robot_i].timestamp - \
-                        robot_states[robot_i_prev].timestamp) / (30.0)
-            velocity_camera[0] = - velocity_robot[0]
-            velocity_camera[1] = - velocity_robot[1]
-            velocity_camera[2] = - velocity_robot[2]
-        elif speed_source == SpeedSource.T265:
-            velocity_camera[0] =- (velocity.x / 30.0)
-            velocity_camera[1] =- (velocity.y / 30.0)
-            velocity_camera[2] =- (velocity.z / 30.0)
+
             
-        print("Velocity camera:\t{} [m/frame]".format(velocity_camera))
         
         
         R_robot=urrot.rot_vec2rot_mat(r_robot[0], r_robot[1], r_robot[2])
         R_robot_prev = urrot.rot_vec2rot_mat(r_robot_prev[0], r_robot_prev[1], r_robot_prev[2])
-        lin_from_ang = emf.lin_from_ang(deprojected, R_robot,R_robot_prev, robot_dt)
+        velocities_from_egomotion = emf.velocity_from_point_clouds(deprojected, T_cam_tcp, T_tcp_cam, robot_states[robot_i_prev], robot_states[robot_i], robot_dt)
         
 
         # Compare the velocities
-        egomotion_filtered_flow = emf.velocity_comparison(depth_frame_aligned, diff_flow, velocity_camera, lin_from_ang,threshold, step=step)
+        egomotion_filtered_flow = emf.velocity_comparison(depth_frame_aligned, diff_flow, velocities_from_egomotion,threshold, step=step)
+
         nonzero_elements = egomotion_filtered_flow[np.nonzero(egomotion_filtered_flow > 0)]
         nonzero_indices = np.where(egomotion_filtered_flow != 0)[0]
         
@@ -368,9 +382,9 @@ try:
         velocity_std_nonzero_elements = np.std(velocity_nonzero_elements,0)           
                                                         
        
-        print("Result velocity mean:\t{} [m/frame]"\
+        print("Result velocity mean:\t{} [m/s]"\
                             .format(velocity_mean_nonzero_elements))
-        print("Result velocity std:\t{} [m/frame]"\
+        print("Result velocity std:\t{} [m/s]"\
                             .format(velocity_std_nonzero_elements))
         
         depth_z=[]
@@ -399,11 +413,11 @@ try:
         robot_ball_i_prev = robot_ball_i
         #time.sleep(0.01)
         
-        print("eye={}".format(v.get("eye")))
-        print("lookat={}".format(v.get("lookat")))
-        print("phi={}".format(v.get("phi")))
-        print("theta={}".format(v.get("theta")))
-        print("r={}".format(v.get("r")))
+       # print("eye={}".format(v.get("eye")))
+       # print("lookat={}".format(v.get("lookat")))
+       # print("phi={}".format(v.get("phi")))
+       # print("theta={}".format(v.get("theta")))
+       # print("r={}".format(v.get("r")))
         print("")
         
         
