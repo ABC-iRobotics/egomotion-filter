@@ -47,15 +47,14 @@ t_cam_tcp = np.matrix('-0.025; -0.053; 0.058')
 
 T_cam_tcp = np.append(R_cam_tcp, t_cam_tcp, axis = 1)
 T_cam_tcp = np.append(T_cam_tcp, zeros_one, axis = 0)
-print(T_cam_tcp)
+#print(T_cam_tcp)
 
 R_tcp_cam = R_cam_tcp.transpose()
 t_tcp_cam = -1.0 * R_tcp_cam.dot(t_cam_tcp)
 T_tcp_cam = np.append(R_tcp_cam, t_tcp_cam, axis = 1)
 T_tcp_cam = np.append(T_tcp_cam, zeros_one, axis = 0)
-print(T_tcp_cam)
+#print(T_tcp_cam)
 
-time.sleep(10000)
 
 
 # Camera settings
@@ -206,6 +205,9 @@ try:
             break;
         robot_dt = (robot_states[robot_i].timestamp - \
                         robot_states[robot_i_prev].timestamp) / (30.0)
+
+
+
         velocity_robot = [(robot_states[robot_i].x -\
                                 robot_states[robot_i_prev].x) / robot_dt,
                                 (robot_states[robot_i].y -\
@@ -295,7 +297,7 @@ try:
         deproject_flow_new = emf.deproject_flow_new(depth_frame_aligned, lines, step=step)
 
         # Calculate 3D optical flow
-        diff_flow = emf.flow_3d(deproject_flow_new, deproject_flow)
+        diff_flow = emf.flow_3d(deproject_flow_new, deproject_flow,robot_dt)
 
         # Apply colormap on depth image (image must be converted to 8-bit per pixel first)
         depth_colormap = ri.get_depth_colormap(depth_image, 1)
@@ -344,11 +346,12 @@ try:
         
         R_robot=urrot.rot_vec2rot_mat(r_robot[0], r_robot[1], r_robot[2])
         R_robot_prev = urrot.rot_vec2rot_mat(r_robot_prev[0], r_robot_prev[1], r_robot_prev[2])
-        lin_from_ang = emf.lin_from_ang(deprojected, R_robot,R_robot_prev, robot_dt)
+        velocities_from_egomotion = emf.velocity_from_point_clouds(deprojected, T_cam_tcp, T_tcp_cam, robot_states[robot_i_prev], robot_states[robot_i], robot_dt)
         
 
         # Compare the velocities
-        egomotion_filtered_flow = emf.velocity_comparison(depth_frame_aligned, diff_flow, velocity_camera, lin_from_ang,threshold, step=step)
+        egomotion_filtered_flow = emf.velocity_comparison(depth_frame_aligned, diff_flow, velocities_from_egomotion,threshold, step=step)
+
         nonzero_elements = egomotion_filtered_flow[np.nonzero(egomotion_filtered_flow > 0)]
         nonzero_indices = np.where(egomotion_filtered_flow != 0)[0]
         
