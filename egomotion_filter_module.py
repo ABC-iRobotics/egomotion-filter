@@ -10,7 +10,7 @@ import pyrealsense2 as rs
 import numpy as np
 import cv2
 import read_robot_states as robot_states
-
+import ur_rotation_module as urrot
 
 ## 
 #  @brief Convert RGB images to color images
@@ -226,6 +226,13 @@ def velocity_from_point_clouds(deprojected_coordinates, T_cam_tcp, T_tcp_cam, ro
     h, w = deprojected_coordinates.shape[:2]
     velocities = np.empty((h, w, 3))
     T_2_1 = T_cam_tcp.dot(robot_state_2.T_tcp_base).dot(robot_state_1.T_base_tcp).dot(T_tcp_cam)
+    
+    theta_x, theta_y, theta_z = urrot.rotm_2_euler(T_2_1)
+    
+    print('x_rot', theta_x)
+    print('y_rot', theta_y)
+    print('z_rot', theta_z)
+    
     for i in range(h):
         for j in range(w):
             homegenous_coords_1 = np.append(np.asmatrix(deprojected_coordinates[i,j,:]), np.matrix('1'), axis = 1).transpose()

@@ -23,7 +23,7 @@ class SpeedSource(Enum):
     T265 = 3
 
 # Crop data to cut the acceleration
-time_crop_point_start = 0.1 * 1000.0
+time_crop_point_start = 0 * 1000.0
 time_crop_point_end = 4 * 1000.0
 
 # Velocity camera
@@ -68,13 +68,15 @@ framerate_sr300 = 30
 
 # Algorithm settings
 step = 16
-threshold = 0.0015
+threshold = 0.0025
 only_the_ball = False
+data_save = False
 minRadius=40
-maxRadius=65 #65 #75
+maxRadius=60 #65 #75
 radiusOffset=8
 speed_source = SpeedSource.ROBOT
 
+egomotion_calc = True
 
 if speed_source == SpeedSource.CONST:
     print("\nSpeed source CONST\n")
@@ -149,21 +151,23 @@ try:
     robot_ball_i_prev = 0;
     
     # Visualize point cloud
-    v = pptk.viewer(deprojected_prev)
-    v.color_map('cool')
-    v.set(point_size=0.001, lookat=[-0.03220592,  0.10527971,  0.20711438],phi=-1.00015545, theta=-2.75502944, r=0.36758572)
+    #v = pptk.viewer(deprojected_prev)
+    #v.color_map('cool')
+    #v.set(point_size=0.001, lookat=[-0.03220592,  0.10527971,  0.20711438],phi=-1.00015545, theta=-2.75502944, r=0.36758572)
     
-    robot_x_fig = []
-    robot_y_fig = []
-    robot_z_fig = []
+    if data_save:
+        f_ball_x = open("ball_velocity_x.txt", "w", buffering=16384)
+        f_ball_y = open("ball_velocity_y.txt", "w", buffering=16384)
+        f_ball_z = open("ball_velocity_z.txt", "w", buffering=16384)
     
-    robot_ball_x_fig = []
-    robot_ball_y_fig = []
-    robot_ball_z_fig = []
+        f_calculated_x = open("calculated_velocity_x.txt", "w", buffering=16384)
+        f_calculated_y = open("calculated_velocity_y.txt", "w", buffering=16384)
+        f_calculated_z = open("calculated_velocity_z.txt", "w", buffering=16384)
     
-    camera_x_fig = []
-    camera_y_fig = []
-    camera_z_fig = []
+    
+        f_camera_x = open("camera_velocity_x.txt", "w", buffering=16384)
+        f_camera_y = open("camera_velocity_y.txt", "w", buffering=16384)
+        f_camera_z = open("camera_velocity_z.txt", "w", buffering=16384)
     
     while True:
 
@@ -253,7 +257,7 @@ try:
         
         depth_colormap = ri.get_depth_colormap(depth_image, 0.03)
         images = np.hstack((color_image, depth_colormap))
-        ri.show_imgs('SR300', images, 1)
+        #ri.show_imgs('SR300', images, 1)
         
         # Convert RGB image to gray (for optical flow)
         gray = emf.rgb_to_gray(color_image)
@@ -278,8 +282,8 @@ try:
 	                    (0, 128, 255), -1)
 	                cv2.circle(ball_mask, (x, y), r+radiusOffset, 255, -1)
             cv2.imshow("Ball detection", ball_detection)
-            gray_segmented = cv2.bitwise_and(gray,gray,mask = ball_mask)
-            cv2.imshow("Ball segmented", gray_segmented)
+            #gray_segmented = cv2.bitwise_and(gray,gray,mask = ball_mask)
+            #cv2.imshow("Ball segmented", gray_segmented)
 
         # Calculate optical flow
         flow = cv2.calcOpticalFlowFarneback(gray_prev, gray,
@@ -342,71 +346,153 @@ try:
 
             
         
-        
-        R_robot=urrot.rot_vec2rot_mat(r_robot[0], r_robot[1], r_robot[2])
-        R_robot_prev = urrot.rot_vec2rot_mat(r_robot_prev[0], r_robot_prev[1], r_robot_prev[2])
-        velocities_from_egomotion = emf.velocity_from_point_clouds(deprojected, T_cam_tcp, T_tcp_cam, robot_states[robot_i_prev], robot_states[robot_i], robot_dt)
+        if egomotion_calc:
+            R_robot=urrot.rot_vec2rot_mat(r_robot[0], r_robot[1], r_robot[2])
+            R_robot_prev = urrot.rot_vec2rot_mat(r_robot_prev[0], r_robot_prev[1], r_robot_prev[2])
+            velocities_from_egomotion = emf.velocity_from_point_clouds(deprojected, T_cam_tcp, T_tcp_cam, robot_states[robot_i_prev], robot_states[robot_i], robot_dt)
         
 
-        # Compare the velocities
-        egomotion_filtered_flow = emf.velocity_comparison(depth_frame_aligned, diff_flow, velocities_from_egomotion,threshold, step=step)
+            # Compare the velocities
+            egomotion_filtered_flow = emf.velocity_comparison(depth_frame_aligned, diff_flow, velocities_from_egomotion,threshold, step=step)
 
-        nonzero_elements = egomotion_filtered_flow[np.nonzero(egomotion_filtered_flow > 0)]
-        nonzero_indices = np.where(egomotion_filtered_flow != 0)[0]
+            nonzero_elements = egomotion_filtered_flow[np.nonzero(egomotion_filtered_flow > 0)]
+            nonzero_indices = np.where(egomotion_filtered_flow != 0)[0]
+            
+     
         
            
         
         
-        filtered_to_flow = emf.filtered_flow_2d(egomotion_filtered_flow, flow, step=step)
-        ri.show_imgs('Optical flow filtered', emf.draw_flow(gray, filtered_to_flow, step=step), 1)
-        
-        
-        full_len = deproject_flow_new.shape[0]*deproject_flow_new.shape[1]
-        
-        deproject_flow_new_flat = deproject_flow_new.reshape(full_len,3)
-        three_d_flow_x = np.squeeze(diff_flow[:,:,0].reshape(full_len,1))
-        three_d_flow_x = three_d_flow_x
-        
-        v.clear()
-        v.load(deproject_flow_new_flat)
-        v.attributes(three_d_flow_x)
-        v.color_map('jet',[-0.005, 0.005])
-        v.set(point_size=0.001, lookat=[-0.03220592,  0.10527971,  0.20711438],phi=-1.00015545, theta=-2.75502944, r=0.36758572)
-        
-        
-        # Mean velocity and depth
-        velocity_mean_nonzero_elements = [0.0, 0.0, 0.0]
+            filtered_to_flow = emf.filtered_flow_2d(egomotion_filtered_flow, flow, step=step)
+            ri.show_imgs('Optical flow filtered', emf.draw_flow(gray, filtered_to_flow, step=step), 1)
+            
 
-        h, w = egomotion_filtered_flow.shape[:2]
-        velocity_nonzero_elements=[]
-        for i in range(h):
-             for j in range(w):
-                if (egomotion_filtered_flow[i,j,0]!=0 and\
-                  egomotion_filtered_flow[i,j,1]!=0 and\
-                  egomotion_filtered_flow[i,j,2]!=0):
-                    velocity_nonzero_elements.append(egomotion_filtered_flow[i,j,:])
+       
+                        
+        
+            full_len = deproject_flow_new.shape[0]*deproject_flow_new.shape[1]
+        
+            deproject_flow_new_flat = deproject_flow_new.reshape(full_len,3)
+            three_d_flow_x = np.squeeze(diff_flow[:,:,0].reshape(full_len,1))
+            three_d_flow_x = three_d_flow_x
+        
+            #v.clear()
+            #v.load(deproject_flow_new_flat)
+            #v.attributes(three_d_flow_x)
+            #v.color_map('jet',[-0.005, 0.005])
+            #v.set(point_size=0.001, lookat=[-0.03220592,  0.10527971,  0.20711438],phi=-1.00015545, theta=-2.75502944, r=0.36758572)
+        
+        
+            # Mean velocity and depth
+            velocity_mean_nonzero_elements = [0.0, 0.0, 0.0]
+
+            h, w = egomotion_filtered_flow.shape[:2]
+            velocity_nonzero_elements=[]
+            velocity_nonzero_elements_x=[]
+            velocity_nonzero_elements_y=[]
+            velocity_nonzero_elements_z=[]
+            for i in range(h):
+                for j in range(w):
+                    if (egomotion_filtered_flow[i,j,0]!=0 and\
+                    egomotion_filtered_flow[i,j,1]!=0 and\
+                    egomotion_filtered_flow[i,j,2]!=0):
+                        velocity_nonzero_elements_x.append(egomotion_filtered_flow[i,j,0])
+                        velocity_nonzero_elements_y.append(egomotion_filtered_flow[i,j,1])
+                        velocity_nonzero_elements_z.append(egomotion_filtered_flow[i,j,2])
                     
-        velocity_mean_nonzero_elements = np.mean(velocity_nonzero_elements,0)
-        velocity_std_nonzero_elements = np.std(velocity_nonzero_elements,0)           
+                        velocity_nonzero_elements.append(egomotion_filtered_flow[i,j,:])
+                    
+            velocity_mean_nonzero_elements = np.mean(velocity_nonzero_elements,0)
+            velocity_std_nonzero_elements = np.std(velocity_nonzero_elements,0)           
                                                         
        
-        print("Result velocity mean:\t{} [m/s]"\
+            print("Result velocity mean:\t{} [m/s]"\
                             .format(velocity_mean_nonzero_elements))
-        print("Result velocity std:\t{} [m/s]"\
+            print("Result velocity std:\t{} [m/s]"\
                             .format(velocity_std_nonzero_elements))
         
-        depth_z=[]
-        for i in range(h):
-             for j in range(w):
-                if (ball_mask[i*step + step//2,j*step + step//2] > 0 or not(only_the_ball)):
-                    depth_z.append(deproject_flow_new[i,j,2])
- 
-        depth_mean_z = np.mean(depth_z,0) 
-        depth_std_z = np.std(depth_z,0) 
-        print("Result depth mean:\t{} [m]".format(depth_mean_z))
-        print("Result depth std:\t{} [m]".format(depth_std_z))
+            depth_z=[]
+            for i in range(h):
+                for j in range(w):
+                    if (ball_mask[i*step + step//2,j*step + step//2] > 0 or not(only_the_ball)):
+                        depth_z.append(deproject_flow_new[i,j,2])
+            
+            
+            depth_mean_z = np.mean(depth_z,0) 
+            depth_std_z = np.std(depth_z,0) 
+            #nonzero_z = depth_z[np.nonzero(depth_z)]
+            
+
+            #print(np.max(depth_z))
+            #print(minval)
+            print("Result depth mean:\t{} [m]".format(depth_mean_z))
+            print("Result depth std:\t{} [m]".format(depth_std_z))
         
+            ####################################################################################################################################
+            z_nonzero=[]
+            for i in range(len(depth_z)):
+                if (depth_z[i] > 0):
+                    z_nonzero.append(depth_z[i])
+             
+            depth_threshold = 0.28
+            depth_mask = np.zeros(deproject_flow_new.shape[:2], dtype=np.uint8)
+            depth_mask[deproject_flow_new[:,:,2]> depth_threshold] = 255
+            
+            depth_mask_highres = np.zeros(flow.shape[:2], dtype=np.uint8)
+            
+            h, w = flow.shape[:2]
+            for i in range(h//step):
+                for j in range(w//step):
+                    for k in range(step):
+                            for l in range(step):
+                                depth_mask_highres[i*step + k,j*step + l] = \
+                                    depth_mask[i,j]
+                
+
+            
+            ball_depth = cv2.bitwise_and(gray,gray,mask = depth_mask_highres)
+            cv2.imshow("Ball depth", ball_depth)
+         
+
+            
+
+            #print("filtered_to_flow.shape[:2]:\t{} [m]".format(filtered_to_flow.shape[:2]))
+            #print("flow:\t{} [m]".format(flow))
+            #print("filtered_to_flow:\t{} [m]".format(filtered_to_flow))
+                        
+            flow_nonzero=[]
+            
+            bg_full_cnt = 0
+            bg_prefilt_nonzero_cnt = 0
+            bg_filt_nonzero_cnt = 0
+            for i in range(h):
+                for j in range(w):
+                    if (depth_mask_highres[i,j] == 255):
+                        bg_full_cnt = bg_full_cnt +1
+                        if (flow[i,j,0] != 0 and\
+                            flow[i,j,1] != 0):
+                                bg_prefilt_nonzero_cnt = bg_prefilt_nonzero_cnt + 1
+            bg_prefilt_nonzero_cnt = bg_prefilt_nonzero_cnt / (step*step) 
+            bg_full_cnt = bg_full_cnt / (step*step)            
+            
+            for i in range(h):
+                for j in range(w):
+                    if (filtered_to_flow[i,j,0] != 0 and\
+                    filtered_to_flow[i,j,1] != 0 and\
+                    depth_mask_highres[i,j] == 255):
+                        bg_filt_nonzero_cnt = bg_filt_nonzero_cnt + 1
+            bg_filt_nonzero_cnt = bg_filt_nonzero_cnt / (step*step)                      
+           
+        print(np.min(z_nonzero))     
+        print(np.max(depth_z))          
+     
+        print("bg_full_cnt:\t{} [m]".format(bg_full_cnt))
+        print("bg_prefilt_nonzero_cnt:\t{} [m]".format(bg_prefilt_nonzero_cnt))
+        print("bg_filt_nonzero_cnt:\t{} [m]".format(bg_filt_nonzero_cnt))
+          
         
+        ####################################################################################################################################       
+                    
         #print(filtered_to_flow.shape)
         # Because of optical flow we have to change the images
         gray_prev = gray
@@ -429,11 +515,61 @@ try:
         print("")
         
         
+       
+        if data_save:
+            robot_ball_x_fig = velocity_robot_ball[0]
+            robot_ball_y_fig = velocity_robot_ball[1]
+            robot_ball_z_fig = velocity_robot_ball[2]
+        
+            calculated_x_fig = velocity_nonzero_elements_x
+            calculated_y_fig = velocity_nonzero_elements_y
+            calculated_z_fig = velocity_nonzero_elements_z
+        
+            camera_x_fig = velocity_robot[0]
+            camera_y_fig = velocity_robot[1]
+            camera_z_fig = velocity_robot[2]
+        
+            f_ball_x.write(str(robot_ball_x_fig)+ "\n")
+            f_ball_y.write(str(robot_ball_y_fig)+ "\n")
+            f_ball_z.write(str(robot_ball_z_fig)+ "\n")
+    
+            f_calculated_x.write(str(calculated_x_fig)+ "\n")
+            f_calculated_y.write(str(calculated_y_fig)+ "\n")
+            f_calculated_z.write(str(calculated_z_fig)+ "\n")
+    
+            f_camera_x.write(str(camera_x_fig)+ "\n")
+            f_camera_y.write(str(camera_y_fig)+ "\n")
+            f_camera_z.write(str(camera_z_fig)+ "\n")
+
+
+
+    if data_save:
+        f_ball_x.close()
+        f_ball_y.close()
+        f_ball_z.close()
+        f_calculated_x.close()
+        f_calculated_y.close()
+        f_calculated_z.close()
+        f_camera_x.close()
+        f_camera_y.close()
+        f_camera_z.close()
     print("Executed succesfully.")
+
 
            
 except (KeyboardInterrupt, SystemExit):
+    if data_save:
+        f_ball_x.close()
+        f_ball_y.close()
+        f_ball_z.close()
+        f_calculated_x.close()
+        f_calculated_y.close()
+        f_calculated_z.close()
+        f_camera_x.close()
+        f_camera_y.close()
+        f_camera_z.close()
     print("Program exited.")
+
     
 
 
