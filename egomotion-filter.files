@@ -1,7 +1,14 @@
+optimization/cuda_example.py
+optimization/cuda_example_2.py
+optimization/cuda_example_3.py
+optimization/numba_trial.py
+optimization/optimization_module.py
 egomotion_filter_module.py
 egomotion_filter_offline_sync_robot_ball.py
 read_robot_states.py
 realsense_input_module.py
 realsense_intrinsics_module.py
+trial.py
 ur_rotation_module.py
 ur_tests_module.py
+offline_sync_module.py

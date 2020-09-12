@@ -40,6 +40,10 @@ class RobotState():
         R_tcp_base = self.getR_tcp_base()
         t_base_tcp = self
 
+    def get_rotation_vector(self):
+        return [self.rx, self.ry, self.rz]
+
+
 
 
 # Read robot states file
@@ -73,7 +77,20 @@ def read_robot_states(filename):
         #t_prev = timestamp
     return robot_states
 
+def get_velocity(robot_state, robot_state_prev):
+    robot_dt = (robot_state.timestamp - \
+                    robot_state_prev.timestamp) / (30.0) #WHY?
 
+    velocity_robot = [(robot_state.x - robot_state_prev.x) / robot_dt,
+                      (robot_state.y - robot_state_prev.y) / robot_dt,
+                      (robot_state.z - robot_state_prev.z) / robot_dt]
+
+    return velocity_robot
+
+def get_dt(robot_state, robot_state_prev):
+    robot_dt = (robot_state.timestamp - \
+                    robot_state_prev.timestamp) / (30.0) #WHY?
+    return robot_dt
     
 #robot_states = read_robot_states("robot_states.txt") 
 #for state in robot_states:

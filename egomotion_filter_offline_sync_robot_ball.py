@@ -14,6 +14,7 @@ from mpl_toolkits import mplot3d
 from numpy.polynomial.polynomial import polyfit
 from enum import Enum
 import ur_rotation_module as urrot
+import offline_sync_module as sync
 
 
    
@@ -193,56 +194,32 @@ try:
             time_imu = ri.get_pose_frames(frames_t265).get_timestamp() - start_time_imu
             
         # Sync robot
-        time_robot = 0.0
-        robot_i = robot_i_prev
-        try:
-            robot_i = robot_i + 1
-            while ((time_depth - 
-                    (robot_states[robot_i].timestamp - start_time_imu)) >= 32.0):    
-                robot_i = robot_i + 1
-                time_robot = robot_states[robot_i].timestamp - start_time_imu
-            print("Time robot:\t\t{} [ms]".format(time_robot))
-        except IndexError:
-            print("Not enogh robot states!\n")
-            break;
-        robot_dt = (robot_states[robot_i].timestamp - \
-                        robot_states[robot_i_prev].timestamp) / (30.0)
+        robot_i, time_robot = \
+            sync.sync_robot_state(robot_states, start_time_imu, robot_i_prev, time_depth, 32.0)
 
+        print("Time robot:\t{} [ms]".format(time_robot))
 
+        velocity_robot = \
+            read_robot_states.get_velocity(robot_states[robot_i],
+                                           robot_states[robot_i_prev])
 
-        velocity_robot = [(robot_states[robot_i].x -\
-                                robot_states[robot_i_prev].x) / robot_dt,
-                                (robot_states[robot_i].y -\
-                                robot_states[robot_i_prev].y) / robot_dt,
-                                (robot_states[robot_i].z -\
-                                robot_states[robot_i_prev].z) / robot_dt]
+        robot_dt = \
+            read_robot_states.get_dt(robot_states[robot_i], robot_states[robot_i_prev])
 
-        r_robot = [robot_states[robot_i].rx, robot_states[robot_i].ry, robot_states[robot_i].rz]
-        r_robot_prev = [robot_states[robot_i_prev].rx, robot_states[robot_i_prev].ry, robot_states[robot_i_prev].rz]
+        r_robot = robot_states[robot_i].get_rotation_vector()
+        r_robot_prev = robot_states[robot_i_prev].get_rotation_vector()
         print("Velocity robot:\t\t{} [m/s]".format(velocity_robot))
 
             
         # Sync robot ball
-        time_robot_ball = 0.0
-        robot_ball_i = robot_ball_i_prev
-        try:
-            robot_ball_i = robot_ball_i + 1
-            while ((time_depth - 
-                    (robot_states_ball[robot_ball_i].timestamp - start_time_imu)) >= 32.0):    
-                robot_ball_i = robot_ball_i + 1
-                time_robot_ball = robot_states_ball[robot_ball_i].timestamp - start_time_imu
-            print("Time robot ball:\t{} [ms]".format(time_robot_ball))
-        except IndexError:
-            print("Not enogh robot ball states!\n")
-            break;
-        robot_ball_dt = (robot_states_ball[robot_ball_i].timestamp - \
-                        robot_states_ball[robot_ball_i_prev].timestamp) / (30.0)
-        velocity_robot_ball = [(robot_states_ball[robot_ball_i].x - \
-                robot_states_ball[robot_ball_i_prev].x) / robot_ball_dt,
-                              (robot_states_ball[robot_ball_i].y - \
-                robot_states_ball[robot_ball_i_prev].y) / robot_ball_dt,
-                              (robot_states_ball[robot_ball_i].z - \
-                robot_states_ball[robot_ball_i_prev].z) / robot_ball_dt]
+        robot_ball_i, time_robot_ball = \
+            sync.sync_robot_state(robot_states_ball, start_time_imu, robot_ball_i_prev, time_depth, 32.0)
+
+        print("Time robot ball:\t{} [ms]".format(time_robot_ball))
+
+        velocity_robot_ball = \
+            read_robot_states.get_velocity(robot_states_ball[robot_ball_i],
+                                           robot_states_ball[robot_ball_i_prev])
 
         velocity_robot_ball = tests.velocity_ball_to_camera_frame( \
             velocity_robot_ball, T_cam_tcp, T_base_base_ball, robot_states[robot_i])
