@@ -14,7 +14,6 @@ from mpl_toolkits import mplot3d
 from numpy.polynomial.polynomial import polyfit
 from enum import Enum
 import ur_rotation_module as urrot
-import offline_sync_module as sync
 
 
    
@@ -195,7 +194,7 @@ try:
             
         # Sync robot
         robot_i, time_robot = \
-            sync.sync_robot_state(robot_states, start_time_imu, robot_i_prev, time_depth, 32.0)
+            tests.sync_robot_state(robot_states, start_time_imu, robot_i_prev, time_depth, 32.0)
 
         print("Time robot:\t{} [ms]".format(time_robot))
 
@@ -213,7 +212,7 @@ try:
             
         # Sync robot ball
         robot_ball_i, time_robot_ball = \
-            sync.sync_robot_state(robot_states_ball, start_time_imu, robot_ball_i_prev, time_depth, 32.0)
+            tests.sync_robot_state(robot_states_ball, start_time_imu, robot_ball_i_prev, time_depth, 32.0)
 
         print("Time robot ball:\t{} [ms]".format(time_robot_ball))
 
@@ -240,27 +239,18 @@ try:
     
     
         # Segment ball
-        ball_mask = np.zeros(gray.shape, dtype=np.uint8)
+
         if only_the_ball:
         
-            ball_detection = color_image.copy()
-            ball_segmented = gray.copy()
-            
-        
-            circles = cv2.HoughCircles(gray, cv2.HOUGH_GRADIENT, 
-                    dp=1, minDist=100, param1=100, param2=30, 
-                    minRadius=minRadius, maxRadius=maxRadius)
+            ball_mask, ball_detection = tests.segment_ball(color_image, gray, \
+                                                    minRadius, maxRadius, radiusOffset)
 
-            if circles is not None:
-	            circles = np.round(circles[0, :]).astype("int")
-	            for (x, y, r) in circles:
-	                cv2.circle(ball_detection, (x, y), r+radiusOffset, (0, 255, 0), 2)
-	                cv2.rectangle(ball_detection, (x - 5, y - 5), (x + 5, y + 5),
-	                    (0, 128, 255), -1)
-	                cv2.circle(ball_mask, (x, y), r+radiusOffset, 255, -1)
             cv2.imshow("Ball detection", ball_detection)
+
             gray = cv2.bitwise_and(gray,gray,mask = ball_mask)
             cv2.imshow("Ball segmented", gray)
+        else:
+            ball_mask = np.zeros(gray.shape, dtype=np.uint8)
         
         # Calculate optical flow
         flow = cv2.calcOpticalFlowFarneback(gray_prev, gray,  
