@@ -1,10 +1,9 @@
 import numpy as np
 import ur_rotation_module
-from numba import jit
 
 
 class RobotState():
-    #@jit(nopython=True)
+
     def __init__(self, timestamp, joints, x, y, z, rx, ry, rz):
         self.timestamp = timestamp
         self.joints = joints
@@ -26,17 +25,17 @@ class RobotState():
         self.T_base_tcp = np.append(self.T_base_tcp, zeros_one, axis = 0)
 
 
-    #@jit(nopython=True)    
+
     def __str__(self):
         return ("Timestamp: {}, Joint1: {}, Joint2: {}, Joint3: {}, Joint4: {}, Joint5: {}, Joint6: {}, " + 
              "x: {}, y: {}, z: {}, rx: {}, ry: {}, rz: {},").format(self.timestamp, self.joints[0],
              self.joints[1], self.joints[2], self.joints[3], self.joints[4], self.joints[5], 
              self.x, self.y, self.z, self.rx, self.ry, self.rz)
-    #@jit(nopython=True)
+
     def getR_tcp_base(self):
         return ur_rotation_module.rot_vec2rot_mat(self.rx, self.ry, self.rz)
 
-    #@jit(nopython=True)
+
     def getT_tcp_base(self):
         R_tcp_base = self.getR_tcp_base()
         t_base_tcp = self

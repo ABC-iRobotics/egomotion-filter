@@ -10,11 +10,6 @@ import pyrealsense2 as rs
 import numpy as np
 import cv2
 import read_robot_states as robot_states
-from numba import jit
-from numba import njit, prange
-from numba import cuda, float32
-from numba import config, njit, threading_layer
-from numba import *
 import numpy as np
 import math
 from timeit import default_timer as time
@@ -289,7 +284,7 @@ def velocity_comparison(aligned_depth_frame, diff_flow, velocities_from_egomotio
 #  @param flow is the 2D optical flow
 #  @return the filtered flow in 2D
 
-@jit(nopython=True)
+
 def filtered_flow_2d(egomotion_filtered_flow, flow, step=16):
     h, w = flow.shape[:2]
     filtered_2d = np.zeros((h,w,2))
@@ -317,7 +312,7 @@ def filtered_flow_2d(egomotion_filtered_flow, flow, step=16):
 #  @param deproject_flow is the prior deprojected points
 #  @return the 3D optical flow
 
-@jit(nopython=True)
+
 def flow_3d(deproject_flow_new, deproject_flow, dt):
     h, w = deproject_flow_new.shape[:2]
     flow_3d = np.empty((h,w,3))
@@ -338,7 +333,7 @@ def flow_3d(deproject_flow_new, deproject_flow, dt):
 #  @param range_2 is the x and y coordinate end point
 #  @return the depth array
 
-@jit(nopython=True)
+
 def get_distance(aligned_depth_frame, range_1, range_2):
     depth_image = np.asanyarray(aligned_depth_frame.get_data())
     depth_array_size_x = range_2 - range_1

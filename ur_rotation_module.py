@@ -2,7 +2,7 @@ import pyrealsense2 as rs
 import numpy as np
 import cv2
 import math
-from numba import jit
+
 
 
 def rot_vec2rot_mat(rx, ry, rz):
