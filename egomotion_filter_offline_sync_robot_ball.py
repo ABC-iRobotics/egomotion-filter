@@ -144,7 +144,7 @@ try:
 
     frame_number_color_prev = color_frame_prev.get_frame_number()
     frame_number_depth_prev = depth_frame_prev_aligned.get_frame_number()
-    time_depth_prev = depth_frame_prev.get_timestamp() - start_time_depth
+    current_time_prev = depth_frame_prev.get_timestamp() - start_time_depth
 
     robot_i_prev = 0;
     robot_ball_i_prev = 0;
@@ -178,53 +178,44 @@ try:
         # Sync
         if ((frame_number_depth <= frame_number_depth_prev) or (
                 frame_number_color <= frame_number_color_prev)) or (
-                time_depth_prev > time_crop_point_end):
+                current_time_prev > time_crop_point_end):
             break;
             
             
         time_depth = depth_frame.get_timestamp() - start_time_depth
         time_color = color_frame.get_timestamp() - start_time_depth
+        current_time = time_depth
         
         # Sync IMU
-        time_imu = 0.0
-        while ((time_depth - 
-                (ri.get_pose_frames(frames_t265).get_timestamp() - start_time_imu)) >= 5.5):
-            frames_t265 = ri.get_frames(pipeline_1)
-            time_imu = ri.get_pose_frames(frames_t265).get_timestamp() - start_time_imu
-            
+        frames_t265, time_imu =  tests.sync_imu(ri, pipeline_1, frames_t265, start_time_imu, current_time, 5.5)
+
         # Sync robot
         robot_i, time_robot = \
-            tests.sync_robot_state(robot_states, start_time_imu, robot_i_prev, time_depth, 32.0)
-
+            tests.sync_robot_state(robot_states, start_time_imu, robot_i_prev, current_time, 32.0)
         print("Time robot:\t{} [ms]".format(time_robot))
-
         velocity_robot = \
             read_robot_states.get_velocity(robot_states[robot_i],
                                            robot_states[robot_i_prev])
-
         robot_dt = \
             read_robot_states.get_dt(robot_states[robot_i], robot_states[robot_i_prev])
-
         r_robot = robot_states[robot_i].get_rotation_vector()
         r_robot_prev = robot_states[robot_i_prev].get_rotation_vector()
         print("Velocity robot:\t\t{} [m/s]".format(velocity_robot))
 
-            
         # Sync robot ball
         robot_ball_i, time_robot_ball = \
-            tests.sync_robot_state(robot_states_ball, start_time_imu, robot_ball_i_prev, time_depth, 32.0)
-
+            tests.sync_robot_state(robot_states_ball, start_time_imu, robot_ball_i_prev, current_time, 32.0)
         print("Time robot ball:\t{} [ms]".format(time_robot_ball))
-
         velocity_robot_ball = \
             read_robot_states.get_velocity(robot_states_ball[robot_ball_i],
                                            robot_states_ball[robot_ball_i_prev])
-
         velocity_robot_ball = tests.velocity_ball_to_camera_frame( \
             velocity_robot_ball, T_cam_tcp, T_base_base_ball, robot_states[robot_i])
         print("Velocity robot ball:\t{} [m/s]".format(velocity_robot_ball))
        
-        # Get the images
+
+
+        # Read images
         depth_image = ri.convert_img_to_nparray(depth_frame)
         color_image = ri.convert_img_to_nparray(color_frame)
         
@@ -237,9 +228,7 @@ try:
         
         
     
-    
         # Segment ball
-
         if only_the_ball:
         
             ball_mask, ball_detection = tests.segment_ball(color_image, gray, \
@@ -249,12 +238,14 @@ try:
 
             gray = cv2.bitwise_and(gray,gray,mask = ball_mask)
             cv2.imshow("Ball segmented", gray)
-        else:
-            ball_mask = np.zeros(gray.shape, dtype=np.uint8)
+
         
+
+
         # Calculate optical flow
         flow = cv2.calcOpticalFlowFarneback(gray_prev, gray,  
-                                    None, 0.5, 5, 15, 3, 5, 1, cv2.OPTFLOW_FARNEBACK_GAUSSIAN)
+                                    None, 0.5, 5, 15, 3, 5, 1,
+                                    cv2.OPTFLOW_FARNEBACK_GAUSSIAN)
 
         # Get the previous and the current pixel locations
         lines = emf.get_lines(gray, flow, step=step)
@@ -267,7 +258,8 @@ try:
         #deprojected = emf.deproject(depth_frame_aligned, 0, 479)
         
         # Deproject the previous pixels for 3D optical flow
-        deproject_flow = emf.deproject_flow_prev(depth_frame_prev_aligned, lines, step=step)
+        deproject_flow = emf.deproject_flow_prev(depth_frame_prev_aligned,
+                                                 lines, step=step)
 
         # Deproject the current pixels for 3D optical flow
         deproject_flow_new = emf.deproject_flow_new(depth_frame_aligned, lines, step=step)
@@ -280,36 +272,23 @@ try:
 
         # Stack both images horizontally
         images = np.hstack((color_image, depth_colormap))
-	
-        # Show images
         ri.show_imgs('Optical flow', emf.draw_flow(gray, flow.astype(int), step=step), 1)
 
-        # Get pose data
+
+        # Get pose data from RealSense
         pose = ri.get_pose_frames(frames_t265)
         if pose:
             pose_data = ri.get_pose_data(pose)
             velocity = ri.get_velocity(pose_data)
             angular_velocity = ri.get_angular_velocity(pose_data)
             position = ri.get_translation(pose_data)
-            #print("\nPose: {}".format(position))
-            #print("Angular velocity: {}".format(angular_velocity))
-            #print("Velocity: {}\n".format(velocity))
-            #print("Timstamp base: {}".format(pose.get_frame_timestamp_domain()))
-            #print("Pose Timstamp: {}".format(pose.get_timestamp()))
-            #print("Num: {}".format(pose.get_frame_number()))
-            #print("Color Timstamp: {}".format(color_frame.get_timestamp()))
-            #print("Timstamp base: {}".format(pose.get_frame_timestamp_domain()))
-            #print("Num: {}".format(color_frame.get_frame_number()))
-            #print("Depth Timstamp: {}".format(depth_frame_aligned.get_timestamp()))
-            #print("Timstamp base: {}".format(pose.get_frame_timestamp_domain()))
-            #print("Num: {}".format(depth_frame_aligned.get_frame_number()))
 
 
             
         
-        
-        R_robot=urrot.rot_vec2rot_mat(r_robot[0], r_robot[1], r_robot[2])
-        R_robot_prev = urrot.rot_vec2rot_mat(r_robot_prev[0], r_robot_prev[1], r_robot_prev[2])
+        # Calc rotation matrices for the robot
+        R_robot=urrot.rot_vec2rot_mat(r_robot)
+        R_robot_prev = urrot.rot_vec2rot_mat(r_robot_prev)
 
         velocities_from_egomotion = emf.velocity_from_point_clouds(deprojected, T_cam_tcp, T_tcp_cam, robot_states[robot_i_prev], robot_states[robot_i], robot_dt)
         
@@ -320,12 +299,8 @@ try:
         nonzero_elements = egomotion_filtered_flow[np.nonzero(egomotion_filtered_flow > 0)]
         nonzero_indices = np.where(egomotion_filtered_flow != 0)[0]
         
-           
-        
-        
         filtered_to_flow = emf.filtered_flow_2d(egomotion_filtered_flow, flow, step=step)
         ri.show_imgs('Optical flow filtered', emf.draw_flow(gray, filtered_to_flow, step=step), 1)
-        
         
         full_len = deproject_flow_new.shape[0]*deproject_flow_new.shape[1]
         
@@ -333,48 +308,33 @@ try:
         three_d_flow_x = np.squeeze(diff_flow[:,:,0].reshape(full_len,1))
         three_d_flow_x = three_d_flow_x
        
-        
-        v.clear()
-        v.load(deproject_flow_new_flat)
-        v.attributes(three_d_flow_x)
-        v.color_map('jet',[-0.005, 0.005])
-        v.set(point_size=0.001, lookat=[-0.03220592,  0.10527971,  0.20711438],phi=-1.00015545, theta=-2.75502944, r=0.36758572)
-        
-        
-        # Mean velocity and depth
-        velocity_mean_nonzero_elements = [0.0, 0.0, 0.0]
+        # Display point cloud
+        emf.show_pointcloud(v, deproject_flow_new_flat, three_d_flow_x)
 
-        h, w = egomotion_filtered_flow.shape[:2]
-        velocity_nonzero_elements=[]
-        for i in range(h):
-             for j in range(w):
-                if (egomotion_filtered_flow[i,j,0]!=0 and\
-                  egomotion_filtered_flow[i,j,1]!=0 and\
-                  egomotion_filtered_flow[i,j,2]!=0):
-                    velocity_nonzero_elements.append(egomotion_filtered_flow[i,j,:])
-                    
-        velocity_mean_nonzero_elements = np.mean(velocity_nonzero_elements,0)
-        velocity_std_nonzero_elements = np.std(velocity_nonzero_elements,0)           
-                                                        
-       
+
+
+
+        # Calculate props of the moving object
+        velocity_mean_nonzero_elements, velocity_std_nonzero_elements = \
+                                    emf.calc_mean_velocity(egomotion_filtered_flow)
         print("Result velocity mean:\t{} [m/s]"\
                             .format(velocity_mean_nonzero_elements))
         print("Result velocity std:\t{} [m/s]"\
                             .format(velocity_std_nonzero_elements))
         
-        depth_z=[]
-        for i in range(h):
-             for j in range(w):
-                if (ball_mask[i*step + step//2,j*step + step//2] > 0 or not(only_the_ball)):
-                    depth_z.append(deproject_flow_new[i,j,2])
- 
-        depth_mean_z = np.mean(depth_z,0) 
-        depth_std_z = np.std(depth_z,0) 
+        if (only_the_ball):
+            depth_mean_z, depth_std_z = \
+                emf.calc_mean_depth_mask(egomotion_filtered_flow,
+                deproject_flow_new, ball_mask, step)
+        else:
+            depth_mean_z, depth_std_z = \
+                emf.calc_mean_depth(egomotion_filtered_flow, deproject_flow_new)
         print("Result depth mean:\t{} [m]".format(depth_mean_z))
         print("Result depth std:\t{} [m]".format(depth_std_z))
         
-        
-        #print(filtered_to_flow.shape)
+
+
+
         # Because of optical flow we have to change the images
         gray_prev = gray
    
@@ -383,16 +343,10 @@ try:
         depth_frame_prev_aligned = depth_frame_aligned
         frame_number_color_prev = frame_number_color
         frame_number_depth_prev = frame_number_depth
-        time_depth_prev = time_depth
         robot_i_prev = robot_i
         robot_ball_i_prev = robot_ball_i
-        #time.sleep(0.01)
-        
-       # print("eye={}".format(v.get("eye")))
-       # print("lookat={}".format(v.get("lookat")))
-       # print("phi={}".format(v.get("phi")))
-       # print("theta={}".format(v.get("theta")))
-       # print("r={}".format(v.get("r")))
+
+
         print("")
         
         

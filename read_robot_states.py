@@ -14,7 +14,7 @@ class RobotState():
         self.ry = ry
         self.rz = rz
         zeros_one = np.matrix('0 0 0 1')
-        R_tcp_base = ur_rotation_module.rot_vec2rot_mat(self.rx, self.ry, self.rz)
+        R_tcp_base = ur_rotation_module.rot_vec2rot_mat([self.rx, self.ry, self.rz])
         t_base_tcp = np.matrix([[self.x],[self.y],[self.z]])
         R_base_tcp = R_tcp_base.transpose()
         t_tcp_base = -1.0 * R_tcp_base.dot(t_base_tcp)

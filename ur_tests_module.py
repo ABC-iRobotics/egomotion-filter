@@ -86,6 +86,16 @@ def sync_robot_state(robot_states, start_time, i_prev, current_time, dt):
         print("Not enogh robot states!\n")
         raise Exception("Not enogh robot states!")
 
+def sync_imu(ri, pipeline_1, frames_t265, start_time, current_time, dt):
+    time_imu = 0.0
+    while ((current_time -
+            (ri.get_pose_frames(frames_t265).get_timestamp() - start_time)) >= dt):
+        frames_t265 = ri.get_frames(pipeline_1)
+        time_imu = ri.get_pose_frames(frames_t265).get_timestamp() - start_time
+
+    return frames_t265, time_imu
+
+
 
 
 

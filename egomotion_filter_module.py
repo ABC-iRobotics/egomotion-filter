@@ -403,6 +403,54 @@ def point_to_another_coord(extrinsics, deprojected_coordinates):
 
 
 
+def calc_mean_velocity(egomotion_filtered_flow):
+    velocity_mean_nonzero_elements = [0.0, 0.0, 0.0]
+    h, w = egomotion_filtered_flow.shape[:2]
+    velocity_nonzero_elements=[]
+    for i in range(h):
+         for j in range(w):
+            if (egomotion_filtered_flow[i,j,0]!=0 and\
+              egomotion_filtered_flow[i,j,1]!=0 and\
+              egomotion_filtered_flow[i,j,2]!=0):
+                velocity_nonzero_elements.append(egomotion_filtered_flow[i,j,:])
+
+    velocity_mean_nonzero_elements = np.mean(velocity_nonzero_elements,0)
+    velocity_std_nonzero_elements = np.std(velocity_nonzero_elements,0)
+    return velocity_mean_nonzero_elements, velocity_std_nonzero_elements
+
+
+
+def calc_mean_depth(egomotion_filtered_flow, deproject_flow_new):
+    h, w = egomotion_filtered_flow.shape[:2]
+    depth_z=[]
+    for i in range(h):
+        for j in range(w):
+             depth_z.append(deproject_flow_new[i,j,2])
+
+    depth_mean_z = np.mean(depth_z,0)
+    depth_std_z = np.std(depth_z,0)
+    return depth_mean_z, depth_std_z
+
+def calc_mean_depth_mask(egomotion_filtered_flow, deproject_flow_new, ball_mask, step):
+    h, w = egomotion_filtered_flow.shape[:2]
+    depth_z=[]
+    for i in range(h):
+        for j in range(w):
+            if (ball_mask[i*step + step//2,j*step + step//2] > 0):
+                depth_z.append(deproject_flow_new[i,j,2])
+
+    depth_mean_z = np.mean(depth_z,0)
+    depth_std_z = np.std(depth_z,0)
+    return depth_mean_z, depth_std_z
+
+
+def show_pointcloud(v, deproject_flow_new_flat, three_d_flow_x):
+    v.color_map('cool')
+    v.clear()
+    v.load(deproject_flow_new_flat)
+    v.attributes(three_d_flow_x)
+    v.color_map('jet',[-0.005, 0.005])
+    v.set(point_size=0.001, lookat=[-0.03220592,  0.10527971,  0.20711438],phi=-1.00015545, theta=-2.75502944, r=0.36758572)
 
 
 
