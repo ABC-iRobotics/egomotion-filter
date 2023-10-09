@@ -26,17 +26,18 @@ Data is available upon request: renata.levendovics@irob.uni-obuda.hu
 ## Usage
 
 Place the data inside your folder.
+
 Run the main with the following:
+
     python egomotion_filter_offline_sync_robot_ball.py filename
  
 ## Citation
 
 If you find this work useful for your publications, please consider citing:
-
-@inproceedings{elek2020towards,
-  title={Towards Optical Flow Ego-motion Compensation for Moving Object Segmentation.},
-  author={Elek, Ren{\'a}ta Nagyn{\'e} and K{\'a}roly, Art{\'u}r Istv{\'a}n and Haidegger, Tam{\'a}s and Galambos, P{\'e}ter},
-  booktitle={ROBOVIS},
-  pages={114--120},
-  year={2020}
-}
+    @inproceedings{elek2020towards,
+      title={Towards Optical Flow Ego-motion Compensation for Moving Object Segmentation.},
+      author={Elek, Ren{\'a}ta Nagyn{\'e} and K{\'a}roly, Art{\'u}r Istv{\'a}n and Haidegger, Tam{\'a}s and Galambos, P{\'e}ter},
+      booktitle={ROBOVIS},
+      pages={114--120},
+      year={2020}
+    }
