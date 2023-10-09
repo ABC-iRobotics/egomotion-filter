@@ -34,6 +34,7 @@ Run the main with the following:
 ## Citation
 
 If you find this work useful for your publications, please consider citing:
+    
     @inproceedings{elek2020towards,
       title={Towards Optical Flow Ego-motion Compensation for Moving Object Segmentation.},
       author={Elek, Ren{\'a}ta Nagyn{\'e} and K{\'a}roly, Art{\'u}r Istv{\'a}n and Haidegger, Tam{\'a}s and Galambos, P{\'e}ter},
